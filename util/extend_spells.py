@@ -103,9 +103,18 @@ class Library(object):
             print()
     
     def print_entries(self):
+        print(self.to_entries())
+    
+    def save(self, filename):
+        with open(filename, 'w') as dst:
+            dst.write(self.to_entries())
+
+    def to_entries(self):
+        entries = []
         for spellname, spell in self._indexed_spells.items():
-            print(spell.to_entry())
-            print()
+            entries.append(spell.to_entry())
+        return('\n\n'.join(entries))
+    
 
 
 class Spell(object):
@@ -417,18 +426,17 @@ if __name__ == "__main__":
     logging.debug(f"Source: {source}, Destination: {destination}")
 
     """ Create and load Spell Library """
-    library_orig = Library()
-    library_orig.load(source)
+    library = Library()
+    library.load(source)
     
     """ Debug """
     if args['verbose'] > 0:
-        library_orig.print_entries()
+        library.print()
+
+    library.save(destination)
 
     #extended_spell_list = add_meta_versions(original_spell_list)
-
-    #if args['verbose'] > 0:
-    #    pprint(extended_spell_list)
-
+    
     #with open(destination, 'w') as dst:
     #    dst.write(recreate_library(extended_spell_list))
 
