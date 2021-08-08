@@ -62,14 +62,8 @@ class Library(object):
                 add_container(md, spellname, spelldata, container_spells)
         return md
 
-    def load(self, filename):
-        with open(filename, 'r') as src:
-            self._data = src.read()
-        self.load_spells()
-        del self._data
-    
     def load_spells(self):
-        """ Reads spell block definitions in file into a Library of Spells """
+        """ Processes spell block definitions into Spells """
         
         """ Break up data into blocks that are separated by empty lines in the file """
         for block in self._data.split('\n\n'):
@@ -88,12 +82,14 @@ class Library(object):
             self.add(spell)
 
     def load(self, filename):
+        """ Loads spells into Library from file """
         with open(filename, 'r') as src:
             self._data = src.read()
         self.load_spells()
         del self._data
 
     def print(self):
+        """ Human readable representation of the Library and Spells """
         for spellname, spell in self._indexed_spells.items():
             print(f'{spell.name}')
             if spell.parent:
@@ -103,13 +99,16 @@ class Library(object):
             print()
     
     def print_entries(self):
+        """ Prints library in file format """
         print(self.to_entries())
     
     def save(self, filename):
+        """ Saves library properly formatted to file """
         with open(filename, 'w') as dst:
             dst.write(self.to_entries())
 
     def to_entries(self):
+        """ Recreates library in file format """
         entries = []
         for spellname, spell in self._indexed_spells.items():
             entries.append(spell.to_entry())
@@ -118,18 +117,48 @@ class Library(object):
 
 
 class Spell(object):
-    """
-        Spell Object
-    """    
+    """ Spell Object """    
     def __init__(self):
-        """Initializes a Spell object
-
-        Args: N/A
-        """        
         self._name = ""
         self._entrytype = 'SpellData'
         self._parent = ""
         self._data = {}
+
+    @property
+    def name(self):   
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+    @name.deleter
+    def name(self):
+        del self._name
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, value):
+        self._parent = value
+
+    @parent.deleter
+    def parent(self):
+        del self._parent
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value
+
+    @data.deleter
+    def data(self):
+        del self._data
 
     def __repr__(self):
         return f'Spell({self._name})'
@@ -195,69 +224,29 @@ class Spell(object):
         self._data.update(self._type)
 
     def to_entry(self):
+        """ Implements storage format used in files """
+
+        """ Header first """
         lines = [
             f'''new entry "{self._name}"''',
             f'''type "{self._entrytype}"''',
             f'''data "SpellType" "{self._data['SpellType']}"''',
             f'''using "{self._parent}"'''
         ]
-        del self._data['SpellType']
+    
+        """ Remove parent line if not applicable """
         if not self._parent:
             lines.pop()
+
+        """ Already specified in above header """
+        del self._data['SpellType']
+
+        """ Write remaining data entries """
         for k, v in self._data.items():
             lines.append(f'data "{k}" "{v}"')
+
         return '\n'.join(lines) 
         
-    @property
-    def name(self):
-        """This is the name of the Spell
-
-        Returns:
-            str: Spell name
-        """        
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        self._name = value
-
-    @name.deleter
-    def name(self):
-        del self._name
-
-    @property
-    def parent(self):
-        """Spell inherits settings from this parent Spell
-
-        Returns:
-            str: Parent spell name (e.g. "Projectile_MagicMissile")
-        """        
-        return self._parent
-
-    @parent.setter
-    def parent(self, value):
-        self._parent = value
-
-    @parent.deleter
-    def parent(self):
-        del self._parent
-
-    @property
-    def data(self):
-        """Dictionary with Spell settings
-
-        Returns:
-            dict: Spell settings in key/value format
-        """        
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        self._data = value
-
-    @data.deleter
-    def data(self):
-        del self._data
 
 def create_spell(spellname, spelldata, customdata=None, postfix='Clone', container_postfix='Metamagic'):
     """Clones and modifies a spell with custom data
@@ -379,29 +368,6 @@ def add_meta_versions(d, copy_orig=False):
             add_container(md, spellname, spelldata, container_spells)
     return md
 
-
-""" Recreates library using spell definitions """
-def recreate_library(d):
-    lines = []
-    for spellname, spelldata in d.items():
-        """ Fixed order header """
-        lines.append(f'new entry "{spellname}"')
-        spellspec = spelldata.pop('type', None)
-        lines.append(f'type "{spellspec}"')
-        spelltype = spelldata['data'].pop('SpellType', None)
-        lines.append(f'data "SpellType" "{spelltype}"')
-        using = spelldata.pop('using', None)
-        if using:
-            lines.append(f'using "{using}"')
-        for meta, values in spelldata.items():
-            if meta == "data":
-                for k, v in values.items():
-                    lines.append(f'{meta} "{k}" "{v}"')
-            else:
-                lines.append(f'{meta} "{values}"')
-        lines.append('')
-    return '\n'.join(lines)
-        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description)
