@@ -62,6 +62,69 @@ class Library(object):
                 add_container(md, spellname, spelldata, container_spells)
         return md
 
+    def load(self, filename):
+        with open(filename, 'r') as src:
+            self._data = src.read()
+        self.load_spells()
+        del self._data
+    
+    def load_spells(self):
+        """ Reads spell block definitions in file into a Library of Spells """
+        
+        """ Break up data into blocks that are separated by empty lines in the file """
+        for block in self._data.split('\n\n'):
+            """ Break up the block into lines for further processing """
+            lines = block.split('\n')
+            
+            """ Skip empty lines """
+            if len(lines) < 3:
+                logging.warning("short block found")
+                continue
+
+            spell = Spell()
+            spell.load(lines)
+
+            """ Add compiled spell """
+            self.add(spell)
+
+    def load(self, filename):
+        with open(filename, 'r') as src:
+            self._data = src.read()
+        self.load_spells()
+        del self._data
+
+    def print(self):
+        for spellname, spell in self._indexed_spells.items():
+            print(f'{spell.name}')
+            if spell.parent:
+                print(f'  Parent: {spell.parent}')
+            for k, v in spell.data.items():
+                print(f'  {k}: {v}')
+            print()
+    
+    def print_entries(self):
+        for spellname, spell in self._indexed_spells.items():
+            print(spell.to_entry())
+            print()
+
+
+class Spell(object):
+    """
+        Spell Object
+    """    
+    def __init__(self):
+        """Initializes a Spell object
+
+        Args: N/A
+        """        
+        self._name = ""
+        self._entrytype = 'SpellData'
+        self._parent = ""
+        self._data = {}
+
+    def __repr__(self):
+        return f'Spell({self._name})'
+
     def get_spellname(self, line):
         re_name = r'(?P<headertype>new entry) "(?P<value>.+)"'
         m = re.match(re_name, line)
@@ -92,105 +155,50 @@ class Library(object):
         v = m.group('value')
         return {k:v}
 
-    def load(self, filename):
-        with open(filename, 'r') as src:
-            self._data = src.read()
-        self.load_spells()
-        del self._data
-    
-    def load_spells(self):
-        """ Reads spell block definitions in file into a Library of Spells """
+    def load(self, lines):
+        """ Processes a block of lines into a Spell """
+
+        """ Spell name is stored in 'new entry' """
+        self._name = self.get_spellname(lines.pop(0))
         
-        """ Break up data into blocks that are separated by empty lines in the file """
-        for block in self._data.split('\n\n'):
-            """ Break up the block into lines for further processing """
-            lines = block.split('\n')
-            
-            """ Skip empty lines """
-            if not lines:
-                continue
+        """ The entry type for spells is stored via 'type' and is always be set to 'SpellData' """
+        self._entrytype = self.get_entrytype(lines.pop(0))
+        
+        """ The actual spell type (e.g. 'Projectile') is stored simply as 'data' """
+        self._type = self.get_spelldata(lines.pop(0))
+        
+        """ 
+            Settings might be inherited from another spell pointed to via the 'using' key
+            This is an optional setting though so we only pop() this line if exists.
+        """
+        peekline = lines[0]
+        self._parent = self.get_spellparent(peekline)
+        if self._parent:
+            lines.pop(0)
 
-            """ We first need to process headers """
+        """ The rest of the lines should all be in 'data' """
+        for line in lines:
+            d = self.get_spelldata(line)
+            if d:
+                self._data.update(d)
 
-            """ Spell name is stored in 'new entry' """
-            spellname = self.get_spellname(lines.pop(0))
-            if not spellname:
-                logging.warning("spell name not found, skipping block")
-                continue
+        """ We need to put back the spell type from the header into 'data' """
+        self._data.update(self._type)
 
-            """ The entry type for spells is stored via 'type' and is always be set to 'SpellData' """
-            entrytype = self.get_entrytype(lines.pop(0))
-            if entrytype != "SpellData":
-                logging.warning("entry type not SpellData")
-                continue
-
-            """ The actual spell type (e.g. 'Projectile') is stored simply as 'data' """
-            spelltype = self.get_spelldata(lines.pop(0))
-            if not spelltype:
-                logging.warning("spell type not found, skipping block")
-                continue
-
-            """ 
-                Settings might be inherited from another spell pointed to via the 'using' key
-                This is an optional setting though so we only pop() this line if exists.
-            """
-            peekline = lines[0]
-            spellparent = self.get_spellparent(peekline)
-            if spellparent:
-                lines.pop(0)
-
-            """ The rest of the lines should all be in 'data' """
-            spelldata = {}
-            for line in lines[1:]:
-                d = self.get_spelldata(line)
-                if d:
-                    spelldata.update(d)
-
-            """ We need to put back the spell type from the header into 'data' """
-            spelldata.update(spelltype)
-
-            """ Create our shiny new spell object """
-            spell = Spell(spellname, spellparent, spelldata)
-
-            """ Add compiled spell """
-            self.add(spell)
-
-    def load(self, filename):
-        with open(filename, 'r') as src:
-            self._data = src.read()
-        self.load_spells()
-        del self._data
-
-    def print(self):
-        for spellname, spell in self._indexed_spells.items():
-            print(f'{spell.name}')
-            if spell.parent:
-                print(f'  Parent: {spell.parent}')
-            for k, v in spell.data.items():
-                print(f'  {k}: {v}')
-            print()
-
-
-class Spell(object):
-    """
-        Spell Object
-    """    
-    def __init__(self, name, parent="", data={}):
-        """Initializes a Spell object
-
-        Args:
-            name (str):   Name of the spell. 
-            type (str):   Type of the spell.
-            parent (str): Name of the spell settings are inherited from.
-            data (dict):  Dictionary of spell settings.
-        """        
-        self._name = name
-        self._parent = parent
-        self._data = data
-
-    def __repr__(self):
-        return f'Spell({self._name})'
-
+    def to_entry(self):
+        lines = [
+            f'''new entry "{self._name}"''',
+            f'''type "{self._entrytype}"''',
+            f'''data "SpellType" "{self._data['SpellType']}"''',
+            f'''using "{self._parent}"'''
+        ]
+        del self._data['SpellType']
+        if not self._parent:
+            lines.pop()
+        for k, v in self._data.items():
+            lines.append(f'data "{k}" "{v}"')
+        return '\n'.join(lines) 
+        
     @property
     def name(self):
         """This is the name of the Spell
@@ -241,10 +249,6 @@ class Spell(object):
     @data.deleter
     def data(self):
         del self._data
-
-
-
-
 
 def create_spell(spellname, spelldata, customdata=None, postfix='Clone', container_postfix='Metamagic'):
     """Clones and modifies a spell with custom data
@@ -418,7 +422,7 @@ if __name__ == "__main__":
     
     """ Debug """
     if args['verbose'] > 0:
-        library_orig.print()
+        library_orig.print_entries()
 
     #extended_spell_list = add_meta_versions(original_spell_list)
 
