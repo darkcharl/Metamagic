@@ -180,6 +180,15 @@ class Spell(object):
     def subtle(self):
         spell_subtle = self.clone()
         spell_subtle.name = f'{self.name}_Subtle'
+        spellflags = self._data.get('SpellFlags', None)
+        if not spellflags:
+            spellflags = ''
+        spellflags_items = spellflags.split(';')
+        spellflags_filtered = [sf for sf in spellflags_items if sf != "HasVerbalComponent"]
+        spelldata = {
+            'SpellFlags' : ';'.join(spellflags_filtered)
+        }
+        spell_subtle.alter(spelldata)
         return spell_subtle
 
     def containerized(self, container):
@@ -341,75 +350,9 @@ def add_spell(library, spellname, spelldata, postfix='spell'):
 def add_subtle(md, spellname, spelldata):
     subtle_name = f"{spellname}_Subtle"
     subtle_data = copy.deepcopy(spelldata)
-    spellflags = subtle_data['data']['SpellFlags']
-    spellflags_items = spellflags.split(';')
-    spellflags_filtered = [sf for sf in spellflags_items if sf != "HasVerbalComponent"]
-    subtle_data['data']['SpellFlags'] = ';'.join(spellflags_filtered)
     subtle_data['data']['SpellContainerID'] = f'{spellname}_Metamagic'
     md[subtle_name] = subtle_data
     return subtle_name
-
-
-""" Adds container for created metaspells """
-def add_container(md, spellname, spelldata, container_spells):
-    container_name = f"{spellname}_Metamagic"
-    if not "DisplayName" in spelldata['data']:
-        return
-    if not "SpellFlags" in spelldata['data']:
-        return
-    displayname = spelldata['data']['DisplayName']
-    spellflags = spelldata['data']['SpellFlags'].split(';')
-    spellflags.append('IsLinkedSpellContainer')
-    
-    container_data = {
-        'data' : {
-            'DisplayName'     : f"{displayname} (Metamagic)",
-            'SpellFlags'      : f"{';'.join(spellflags)}",
-            'ContainerSpells' : f"{';'.join(container_spells)}"
-        },
-        'type' : "SpellData",
-        'using': f"{spellname}"
-    }
-    md[container_name] = container_data
-
-
-""" Adds meta versions of spells """
-def add_meta_versions(d, copy_orig=False):
-    md = {}
-    if copy_orig:
-        md = copy.deepcopy(d)
-    for spellname, spelldata in d.items():
-        usecost = ""
-        spellflags = ""
-        if 'UseCosts' in spelldata['data']:
-            usecost = spelldata['data']['UseCosts']
-        if 'SpellFlags' in spelldata['data']:
-            spellflags = spelldata['data']['SpellFlags']
-        
-        """ Skip containers """
-        if spellflags.find("IsLinkedSpellContainer") > -1:
-            logging.debug(f"Skipping {spellname} as it is a container")
-            continue
-
-        container_spells = []
-        """ Original spell, containerized version """
-        container_spells.append(add_original(md, spellname, spelldata))
-
-        """ Quicken """
-        if usecost.find("SpellSlot") > -1 and usecost.find("BonusAction") == -1:
-            logging.debug(f"Adding spell {spellname}")
-            container_spells.append(add_spell(md, spellname, spelldata))
-        
-        """ Subtle """
-        #if spellflags.find("HasVerbalComponent") > -1:
-        #    logging.debug(f"Adding subtle {spellname}")
-        #    container_spells.append(add_subtle(md, spellname, spelldata))
-
-        """ Container """
-        if len(container_spells) > 1:
-            logging.debug(f"Creating container for {spellname} using {container_spells}")
-            add_container(md, spellname, spelldata, container_spells)
-    return md
 
 
 if __name__ == "__main__":
