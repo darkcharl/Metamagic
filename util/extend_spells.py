@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import re
@@ -14,8 +14,8 @@ class Library(object):
 
         Contains spells in a dictionary indexed by the name of the spell.
     """
-    def __init__(self, indexed_spells={}):
-        self._indexed_spells = indexed_spells
+    def __init__(self):
+        self._indexed_spells = {}
     
     def __repr__(self):
         spells = ', '.join([str(s) for s in self._indexed_spells.values()])
@@ -51,9 +51,9 @@ class Library(object):
 
             """ Add Container to Library """
             metamagic_library.add(spell_containerized)
-            #metamagic_library.add(spell_quickened)
-            #metamagic_library.add(spell_subtle)
-            #metamagic_library.add(container)
+            metamagic_library.add(spell_quickened)
+            metamagic_library.add(spell_subtle)
+            metamagic_library.add(container)
         
         return metamagic_library
 
