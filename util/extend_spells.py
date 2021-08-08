@@ -21,46 +21,41 @@ class Library(object):
         spells = ', '.join([str(s) for s in self._indexed_spells.values()])
         return f'Library({spells})'
 
+    @property
+    def indexed_spells(self):
+        return self._indexed_spells
+
     def add(self, spell):
         self._indexed_spells[spell.name] = spell
 
     """ Extend library with metamagic spells """
-    def extend(self, d, copy_orig=False):
-        md = {}
-        if copy_orig:
-            md = copy.deepcopy(d)
-        for spellname, spelldata in d.items():
-            usecost = ""
-            spellflags = ""
-            if 'UseCosts' in spelldata['data']:
-                usecost = spelldata['data']['UseCosts']
-            if 'SpellFlags' in spelldata['data']:
-                spellflags = spelldata['data']['SpellFlags']
-            
-            """ Skip containers """
-            if spellflags.find("IsLinkedSpellContainer") > -1:
-                logging.debug(f"Skipping {spellname} as it is a container")
-                continue
+    def create_metamagic(self):
+        metamagic_library = Library()
+        for _, spell in self._indexed_spells.items():
+            """ Create Container for Spells """
+            container = Container(spell)
 
-            container_spells = []
-            """ Original spell, containerized version """
-            container_spells.append(add_original(md, spellname, spelldata))
+            """ Create containerized version of Spell, add to Library and Container """
+            spell_containerized = spell.containerized(container)
 
-            """ Quicken """
-            if usecost.find("SpellSlot") > -1 and usecost.find("BonusAction") == -1:
-                logging.debug(f"Adding spell {spellname}")
-                container_spells.append(add_spell(md, spellname, spelldata))
-            
-            """ Subtle """
-            #if spellflags.find("HasVerbalComponent") > -1:
-            #    logging.debug(f"Adding subtle {spellname}")
-            #    container_spells.append(add_subtle(md, spellname, spelldata))
+            """ Create quickened version of Spell, add to Library and Container """
+            spell_quickened = spell.quickened()
 
-            """ Container """
-            if len(container_spells) > 1:
-                logging.debug(f"Creating container for {spellname} using {container_spells}")
-                add_container(md, spellname, spelldata, container_spells)
-        return md
+            """ Create subtle version of Spell, add to Library and Container """
+            spell_subtle = spell.subtle()
+
+            """ Add Spells to Container """
+            container.add(spell)
+            container.add(spell_subtle)
+            container.add(spell_quickened)
+
+            """ Add Container to Library """
+            metamagic_library.add(spell_containerized)
+            #metamagic_library.add(spell_quickened)
+            #metamagic_library.add(spell_subtle)
+            #metamagic_library.add(container)
+        
+        return metamagic_library
 
     def load_spells(self):
         """ Processes spell block definitions into Spells """
@@ -118,11 +113,13 @@ class Library(object):
 
 class Spell(object):
     """ Spell Object """    
-    def __init__(self):
+    def __init__(self, spell=None):
         self._name = ""
         self._entrytype = 'SpellData'
         self._parent = ""
         self._data = {}
+        if spell:
+            self = spell.clone()
 
     @property
     def name(self):   
@@ -162,6 +159,34 @@ class Spell(object):
 
     def __repr__(self):
         return f'Spell({self._name})'
+
+    def clone(self):
+        new = Spell()
+        new._name = copy.deepcopy(self._name)
+        new._entrytype = copy.deepcopy(self._entrytype)
+        new._type = copy.deepcopy(self._type)
+        new._parent = copy.deepcopy(self._parent)
+        new._data = copy.deepcopy(self._data)
+        return new
+    
+    def alter(self, spelldata):
+        self._data.update(spelldata)
+
+    def quickened(self):
+        spell_quickened = self.clone()
+        spell_quickened.name = f'{self.name}_Quickened'
+        return spell_quickened
+
+    def subtle(self):
+        spell_subtle = self.clone()
+        spell_subtle.name = f'{self.name}_Subtle'
+        return spell_subtle
+
+    def containerized(self, container):
+        spell_containerized = self.clone()
+        spelldata = {'SpellContainerID' : f'{container.name}'}
+        spell_containerized.alter(spelldata)
+        return spell_containerized
 
     def get_spellname(self, line):
         re_name = r'(?P<headertype>new entry) "(?P<value>.+)"'
@@ -246,7 +271,25 @@ class Spell(object):
             lines.append(f'data "{k}" "{v}"')
 
         return '\n'.join(lines) 
-        
+
+
+class Container(Spell):
+    """ Containers are special spells that contain other spells through "ContainerSpells" """    
+    def __init__(self, spell):
+        super().__init__()
+        self._name = f'{spell.name}_Metamagic'
+        self._entrytype = copy.deepcopy(spell._entrytype)
+        self._type = copy.deepcopy(spell._type)
+        self._data = copy.deepcopy(spell._data)
+        self._children = []
+        self.alter({'ContainerSpells': None})
+    
+    def __repr__(self):
+        return f'Container({self._name})'
+    
+    def add(self, spell):
+        self._children.append(spell)
+
 
 def create_spell(spellname, spelldata, customdata=None, postfix='Clone', container_postfix='Metamagic'):
     """Clones and modifies a spell with custom data
@@ -394,12 +437,15 @@ if __name__ == "__main__":
     """ Create and load Spell Library """
     library = Library()
     library.load(source)
-    
+
+    """ Extend Library with metamagic version of Spells """
+    metamagic_library = library.create_metamagic()
+
     """ Debug """
     if args['verbose'] > 0:
-        library.print()
+        metamagic_library.print()
 
-    library.save(destination)
+    metamagic_library.save(destination)
 
     #extended_spell_list = add_meta_versions(original_spell_list)
     
