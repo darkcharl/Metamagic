@@ -175,6 +175,12 @@ class Spell(object):
     def quickened(self):
         spell_quickened = self.clone()
         spell_quickened.name = f'{self.name}_Quickened'
+        usecost = self._data.get('UseCosts', "")
+        usecost_filtered = re.sub(r'ActionPoint(Group)', 'BonusAction', usecost)
+        spelldata = {
+            'UseCosts' : usecost_filtered
+        }
+        spell_quickened._data.update(spelldata)
         return spell_quickened
 
     def subtle(self):
@@ -344,15 +350,6 @@ def add_spell(library, spellname, spelldata, postfix='spell'):
     name, spell = create_spell(spellname, spelldata, customdata, postfix)
     library.update(spell)
     return name
-
-
-""" Adds subtle version to spell list (no verbal component required) """
-def add_subtle(md, spellname, spelldata):
-    subtle_name = f"{spellname}_Subtle"
-    subtle_data = copy.deepcopy(spelldata)
-    subtle_data['data']['SpellContainerID'] = f'{spellname}_Metamagic'
-    md[subtle_name] = subtle_data
-    return subtle_name
 
 
 if __name__ == "__main__":
