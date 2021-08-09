@@ -39,10 +39,10 @@ class Library(object):
             spell_containerized = spell.containerized(container)
             
             """ Create quickened version of Spell, add to Library and Container """
-            spell_quickened = spell.quickened()
+            spell_quickened = spell.quickened(container)
             
             """ Create subtle version of Spell, add to Library and Container """
-            spell_subtle = spell.subtle()
+            spell_subtle = spell.subtle(container)
 
             """ Add to meta Spells to Container and Library, if applicable """
             meta_spells = []
@@ -181,32 +181,37 @@ class Spell(object):
     def alter(self, spelldata):
         self._data.update(spelldata)
 
-    def quickened(self):
+    def quickened(self, container):
         spell_quickened = self.clone()
         spell_quickened.name = f'{self._name}_Quickened'
+        spell_quickened.add_spelldata('SpellContainerID', f'{container.name}')
         spell_quickened.replace_spelldata('UseCosts', 'ActionPoint(Group)?', 'BonusAction')
         return spell_quickened
 
-    def subtle(self):
+    def subtle(self, container):
         spell_subtle = self.clone()
         spell_subtle.name = f'{self.name}_Subtle'
+        spell_subtle.add_spelldata('SpellContainerID', f'{container.name}')
         spell_subtle.replace_spelldata('SpellFlags', 'HasVerbalComponent[;]*', '')
         return spell_subtle
 
     def containerized(self, container):
         spell_containerized = self.clone()
-        spelldata = {'SpellContainerID' : f'{container.name}'}
-        spell_containerized.alter(spelldata)
+        spell_containerized.name = f'{self.name}_Original'
+        spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
         return spell_containerized
-
-    def replace_spelldata(self, key, find_re, replace_re):
-        if self.find_spelldata(key, find_re):
-            self._data[key] = re.sub(find_re, replace_re, self._data[key])
+    
+    def add_spelldata(self, key, value):
+        self._data[key] = value
 
     def find_spelldata(self, key, find_re):
         if self._data.get(key, None) and re.search(find_re, self._data[key]):
             return True
         return False
+
+    def replace_spelldata(self, key, find_re, replace_re):
+        if self.find_spelldata(key, find_re):
+            self._data[key] = re.sub(find_re, replace_re, self._data[key])
 
     def has_verbalcomponent(self):
         return self.find_spelldata('SpellFlags', 'HasVerbalComponent')
