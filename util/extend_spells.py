@@ -16,6 +16,7 @@ class Library(object):
     """
     def __init__(self):
         self._indexed_spells = {}
+        self._grouped_spells = {}
     
     def __repr__(self):
         spells = ', '.join([str(s) for s in self._indexed_spells.values()])
@@ -27,6 +28,18 @@ class Library(object):
 
     def add(self, spell):
         self._indexed_spells[spell.name] = spell
+
+    def find_spellgroups(self):
+        for spellname, spell in self._indexed_spells.items():
+            spellgroup = spell.get_spellgroup()
+            if spellgroup not in self._grouped_spells:
+                self._grouped_spells[spellgroup] = []
+            self._grouped_spells[spellgroup].append(spell)
+
+    def print_spellgroups(self):
+        for spellgroup, spells in self._grouped_spells.items():
+            spelllist = ','.join([s.name for s in spells])
+            print(f'{spellgroup}: {spelllist}')
 
     """ Extend library with metamagic spells """
     def create_metamagic(self):
@@ -92,6 +105,7 @@ class Library(object):
         with open(filename, 'r') as src:
             self._data = src.read()
         self.load_spells()
+        self.find_spellgroups()
         del self._data
 
     def print(self):
@@ -212,10 +226,29 @@ class Spell(object):
         if self._data.get(key, None) and re.search(find_re, self._data[key]):
             return True
         return False
+    
+    def get_spelldata(self, key):
+        return self._data.get(key, None)
 
     def replace_spelldata(self, key, find_re, replace_re):
         if self.find_spelldata(key, find_re):
             self._data[key] = re.sub(find_re, replace_re, self._data[key])
+
+    def get_spellgroup(self):
+        if self.has_containerspell():
+            return self.get_spelldata('SpellContainerID')
+        elif self.has_rootspell():
+            return self.get_spelldata('RootSpellID')
+        return self._name
+
+    def has_powerlevel(self):
+        return self.find_spelldata('PowerLevel', '[0-9]+')
+
+    def has_containerspell(self):
+        return self.get_spelldata('SpellContainerID')
+
+    def has_rootspell(self):
+        return self.get_spelldata('RootSpellID')
 
     def has_verbalcomponent(self):
         return self.find_spelldata('SpellFlags', 'HasVerbalComponent')
@@ -360,7 +393,7 @@ if __name__ == "__main__":
     """ Create and load Spell Library """
     library = Library()
     library.load(source)
-
+    
     """ Debug """
     if args['verbose'] > 0:
         library.print()
