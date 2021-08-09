@@ -115,7 +115,7 @@ class Library(object):
         for spellname, spell in self._indexed_spells.items():
             entries.append(spell.to_entry())
         return('\n\n'.join(entries))
-    
+
 
 
 class Spell(object):
@@ -326,51 +326,6 @@ class Container(Spell):
     def add(self, spell):
         self._children.append(spell)
 
-
-def create_spell(spellname, spelldata, customdata=None, postfix='Clone', container_postfix='Metamagic'):
-    """Clones and modifies a spell with custom data
-
-    Args:
-        spellname (str): name of the original spell
-        spelldata (dict): dictionary of data of the original spell
-        customdata (dict, optional): Customized data in spelldata dictionary format. Defaults to None.
-        postfix (str, optional): Appends this to the original spell name to create new spell name. Defaults to 'Clone'. 
-        container_postfix (str, optional): Postfix used in naming the container for all these spells. Defaults to 'Metamagic'.
-
-    Using the defaults Target_MageArmor will yield Target_MageArmor_Clone that will be placed in a container Target_MageArmor_Metamagic.
-
-    Returns:
-        string, dict: spell name and a spell object in the format {'spellname_str':'spelldata_dict'}
-    """    
-    name = f"{spellname}_{postfix}"
-    spell = {}
-    d = copy.deepcopy(spelldata)
-    d['data']['SpellContainerID'] = f'{spellname}_{container_postfix}'
-    #if customdata:
-    #    d.update(customdata)
-    spell[name] = d
-    return name, spell
-
-""" Implements original version of spell modifying only the container """
-def add_original(library, spellname, spelldata, postfix='Original'):
-    name, spell = create_spell(spellname, spelldata, None, postfix)
-    library.update(spell)
-    return name
-
-
-""" Adds spell version to spell list (Action => BonusAction) """
-def add_spell(library, spellname, spelldata, postfix='spell'):
-    customdata = {}
-    usecost = re.sub('ActionPoint(Group)?', 'BonusActionPoint', spelldata['data']['UseCosts'])
-    customdata = {
-        'data': {
-            'UseCosts' : f'{usecost}',
-            'RootSpellID' : f'{spellname}'
-        }
-    }
-    name, spell = create_spell(spellname, spelldata, customdata, postfix)
-    library.update(spell)
-    return name
 
 
 if __name__ == "__main__":
