@@ -186,26 +186,23 @@ class Spell(object):
     def quickened(self, container):
         spell_quickened = self.clone().containerized(container)
         spell_quickened.name = f'{self._name}_Quickened'
-        displayname = 'Cast Quickened'
-        spell_quickened.add_spelldata('DisplayName', displayname)
+        spell_quickened.add_spelldata('DisplayName', 'Cast Quickened')
         spell_quickened.replace_spelldata('UseCosts', 'ActionPoint(Group)?', 'BonusAction')
         return spell_quickened
 
     def subtle(self, container):
         spell_subtle = self.clone().containerized(container)
         spell_subtle.name = f'{self.name}_Subtle'
-        displayname = 'Cast Subtle'
-        spell_subtle.add_spelldata('DisplayName', displayname)
+        spell_subtle.add_spelldata('DisplayName', 'Cast Subtle')
         spell_subtle.replace_spelldata('SpellFlags', 'HasVerbalComponent[;]*', '')
         return spell_subtle
 
     def containerized(self, container):
         spell_containerized = self.clone()
         spell_containerized.name = f'{self.name}_Original'
-        displayname = 'Cast Unmodified'
+        spell_containerized.add_spelldata('DisplayName', 'Cast Unmodified')
         spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
         spell_containerized.add_spelldata('RootSpellID', f'{container.name}')
-        spell_containerized.add_spelldata('DisplayName', displayname)
         return spell_containerized
     
     def add_spelldata(self, key, value):
@@ -318,21 +315,15 @@ class Container(Spell):
     """ Containers are special spells that contain other spells through "ContainerSpells" """    
     def __init__(self, spell):
         super().__init__()
-        self._name = f'{spell.name}_Metamagic'
+        self._name = f'{spell._name}_Metamagic'
         self._entrytype = copy.deepcopy(spell._entrytype)
         self._type = copy.deepcopy(spell._type)
         self._parent = f'{spell.name}_Original'
         self._children = []
         self._data = copy.deepcopy(spell._data)
         
-        displayname = f'{self._name.split("_")[1]}'
-        spellflags_items = spell._data.get("SpellFlags", "").split(';')
-        spellflags_items.append('IsLinkedSpellContainer')
-        spellflags = ';'.join(spellflags_items)
-        
-        self.add_spelldata('SpellType', f'{spell._data.get("SpellType")}')
         self.add_spelldata('ContainerSpells', '')
-        self.add_spelldata('SpellFlags', spellflags)
+        self.replace_spelldata('SpellFlags', '(.*)', '\1;IsLinkedSpellContainer')
     
     def __repr__(self):
         return f'Container({self._name})'
