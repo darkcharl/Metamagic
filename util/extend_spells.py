@@ -58,11 +58,13 @@ class Library(object):
             """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
             if len(meta_spells):
                 container.add(spell_containerized)
-                metamagic_library.add(spell_containerized)
-                for s in meta_spells:            
+                for s in meta_spells:         
                     container.add(s)
-                    metamagic_library.add(s)
+                
                 metamagic_library.add(container)
+                metamagic_library.add(spell_containerized)
+                for s in meta_spells:
+                    metamagic_library.add(s)
         
         return metamagic_library
 
@@ -185,6 +187,9 @@ class Spell(object):
         spell_quickened = self.clone()
         spell_quickened.name = f'{self._name}_Quickened'
         spell_quickened.add_spelldata('SpellContainerID', f'{container.name}')
+        spell_quickened.add_spelldata('RootSpellID', f'{container.name}')
+        displayname = f'{self._name.split("_")[1]} (Quickened)'
+        spell_quickened.add_spelldata('DisplayName', displayname)
         spell_quickened.replace_spelldata('UseCosts', 'ActionPoint(Group)?', 'BonusAction')
         return spell_quickened
 
@@ -192,6 +197,9 @@ class Spell(object):
         spell_subtle = self.clone()
         spell_subtle.name = f'{self.name}_Subtle'
         spell_subtle.add_spelldata('SpellContainerID', f'{container.name}')
+        spell_subtle.add_spelldata('RootSpellID', f'{container.name}')
+        displayname = f'{self._name.split("_")[1]} (Subtle)'
+        spell_subtle.add_spelldata('DisplayName', displayname)
         spell_subtle.replace_spelldata('SpellFlags', 'HasVerbalComponent[;]*', '')
         return spell_subtle
 
@@ -199,6 +207,7 @@ class Spell(object):
         spell_containerized = self.clone()
         spell_containerized.name = f'{self.name}_Original'
         spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
+        spell_containerized.add_spelldata('RootSpellID', f'{container.name}')
         return spell_containerized
     
     def add_spelldata(self, key, value):
@@ -316,14 +325,16 @@ class Container(Spell):
         self._type = copy.deepcopy(spell._type)
         self._parent = f'{spell.name}_Original'
         self._children = []
+        displayname = f'{self._name.split("_")[1]} (Metamagic)'
         spellflags_items = spell._data.get("SpellFlags", "").split(';')
         spellflags_items.append('IsLinkedSpellContainer')
         spellflags = ';'.join(spellflags_items)
         self._data = {
             'SpellType' : f'{spell._data.get("SpellType")}',
-            'DisplayName' : f'{spell._name} (Metamagic)',
             'ContainerSpells' : '',
-            'SpellFlags' : f'{spellflags}'
+            'Icon' : f'{spell._data.get("Icon")}',
+            'DisplayName' : displayname,
+            'SpellFlags' : spellflags
         }
         
     
@@ -362,6 +373,10 @@ if __name__ == "__main__":
     """ Create and load Spell Library """
     library = Library()
     library.load(source)
+
+    """ Debug """
+    if args['verbose'] > 0:
+        library.print()
 
     """ Extend Library with metamagic version of Spells """
     metamagic_library = library.create_metamagic()
