@@ -6,7 +6,7 @@ import logging
 import copy
 from pprint import pprint
 
-description = """Generates metamagic spell variants from original files"""
+description = """Generates Metamagic Spells from original"""
 
 class Library(object):
     """
@@ -314,15 +314,22 @@ class Container(Spell):
         self._name = f'{spell.name}_Metamagic'
         self._entrytype = copy.deepcopy(spell._entrytype)
         self._type = copy.deepcopy(spell._type)
-        self._data = copy.deepcopy(spell._data)
+        self._parent = f'{spell.name}_Original'
+        self._data = {
+            'SpellType' : f'{spell._data.get("SpellType")}',
+            'DisplayName' : f'{spell._name} (Metamagic)',
+            'ContainerSpells' : '',
+            'SpellFlags' : f'{spell._data.get("SpellFlags", "")}'
+        }
         self._children = []
-        self.alter({'ContainerSpells': None})
     
     def __repr__(self):
         return f'Container({self._name})'
     
     def add(self, spell):
         self._children.append(spell)
+        children = ";".join([s.name for s in self._children])
+        self.add_spelldata('ContainerSpells', children)
 
 
 
