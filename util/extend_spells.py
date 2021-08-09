@@ -57,6 +57,8 @@ class Library(object):
 
             """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
             if len(meta_spells):
+                container.add(spell_containerized)
+                metamagic_library.add(spell_containerized)
                 for s in meta_spells:            
                     container.add(s)
                     metamagic_library.add(s)
@@ -181,27 +183,14 @@ class Spell(object):
 
     def quickened(self):
         spell_quickened = self.clone()
-        spell_quickened.name = f'{self.name}_Quickened'
-        usecost = self._data.get('UseCosts', "")
-        usecost_filtered = re.sub(r'ActionPoint(Group)?', 'BonusAction', usecost)
-        spelldata = {
-            'UseCosts' : usecost_filtered
-        }
-        spell_quickened._data.update(spelldata)
+        spell_quickened.name = f'{self._name}_Quickened'
+        spell_quickened.replace_spelldata('UseCosts', 'ActionPoint(Group)?', 'BonusAction')
         return spell_quickened
 
     def subtle(self):
         spell_subtle = self.clone()
         spell_subtle.name = f'{self.name}_Subtle'
-        spellflags = self._data.get('SpellFlags', None)
-        if not spellflags:
-            spellflags = ''
-        spellflags_items = spellflags.split(';')
-        spellflags_filtered = [sf for sf in spellflags_items if sf != "HasVerbalComponent"]
-        spelldata = {
-            'SpellFlags' : ';'.join(spellflags_filtered)
-        }
-        spell_subtle.alter(spelldata)
+        spell_subtle.replace_spelldata('SpellFlags', 'HasVerbalComponent[;]*', '')
         return spell_subtle
 
     def containerized(self, container):
@@ -209,9 +198,13 @@ class Spell(object):
         spelldata = {'SpellContainerID' : f'{container.name}'}
         spell_containerized.alter(spelldata)
         return spell_containerized
-    
-    def find_spelldata(self, key, value):
-        if self._data.get(key, None) and self._data[key].find(value) > -1:
+
+    def replace_spelldata(self, key, find_re, replace_re):
+        if self.find_spelldata(key, find_re):
+            self._data[key] = re.sub(find_re, replace_re, self._data[key])
+
+    def find_spelldata(self, key, find_re):
+        if self._data.get(key, None) and re.search(find_re, self._data[key]):
             return True
         return False
 
