@@ -44,41 +44,36 @@ class Library(object):
     """ Extend library with metamagic spells """
     def create_metamagic(self):
         metamagic_library = Library()
-        for _, spell in self._indexed_spells.items():
-            """ Create Container for Spells """
-            container = Container(spell)
 
-            """ Create containerized version of Spell, add to Library and Container """
-            spell_containerized = spell.containerized(container)
-            
-            """ Create quickened version of Spell, add to Library and Container """
-            spell_quickened = spell.quickened(container)
-            
-            """ Create subtle version of Spell, add to Library and Container """
-            spell_subtle = spell.subtle(container)
-
-            """ Add to meta Spells to Container and Library, if applicable """
+        for spellgroup, spells in self._grouped_spells.items():
+            logging.debug(f"Creating meta spells for {spellgroup} with spells {spells}")
+            container = Container(spells[0])
+            container.name = f'{spellgroup}_Metamagic'
             meta_spells = []
+            for spell in spells:
+                spell_containerized = spell.containerized(container)
+                spell_quickened = spell.quickened(container)
+                spell_subtle = spell.subtle(container)
 
-            """ Only add quickened variant for Spells that consume SpellSlots and don't already use BonusAction """
-            if spell.uses_spellslot() and not spell.uses_bonusaction():
-                meta_spells.append(spell_quickened)
+                """ Only add quickened variant for Spells that consume SpellSlots and don't already use BonusAction """
+                if spell.uses_spellslot() and not spell.uses_bonusaction():
+                    meta_spells.append(spell_quickened)
 
-            """ Only add subtle variant for Spells that consume SpellSlots and require verbal component """
-            if spell.uses_spellslot() and spell.has_verbalcomponent():
-                meta_spells.append(spell_subtle)
+                """ Only add subtle variant for Spells that consume SpellSlots and require verbal component """
+                if spell.uses_spellslot() and spell.has_verbalcomponent():
+                    meta_spells.append(spell_subtle)
 
             """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
             if len(meta_spells):
                 container.add(spell_containerized)
                 for s in meta_spells:         
                     container.add(s)
-                
+
                 metamagic_library.add(container)
                 metamagic_library.add(spell_containerized)
                 for s in meta_spells:
                     metamagic_library.add(s)
-        
+
         return metamagic_library
 
     def load_spells(self):
@@ -147,7 +142,7 @@ class Spell(object):
             self = spell.clone()
 
     @property
-    def name(self):   
+    def name(self):
         return self._name
 
     @name.setter
@@ -217,6 +212,7 @@ class Spell(object):
         spell_containerized.add_spelldata('DisplayName', 'Cast Unmodified')
         spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
         spell_containerized.add_spelldata('RootSpellID', f'{container.name}')
+        spell_containerized.replace_spelldata('SpellFlags', r'(.*)(;IsLinkedSpellContainer)', r'\1')
         return spell_containerized
     
     def add_spelldata(self, key, value):
@@ -240,6 +236,9 @@ class Spell(object):
         elif self.has_rootspell():
             return self.get_spelldata('RootSpellID')
         return self._name
+
+    def is_container(self):
+        return self.find_spelldata('SpellFlags', 'IsLinkedSpellContainer')
 
     def has_powerlevel(self):
         return self.find_spelldata('PowerLevel', '[0-9]+')
@@ -348,15 +347,15 @@ class Container(Spell):
     """ Containers are special spells that contain other spells through "ContainerSpells" """    
     def __init__(self, spell):
         super().__init__()
-        self._name = f'{spell._name}_Metamagic'
+        self._name = copy.deepcopy(spell._name)
         self._entrytype = copy.deepcopy(spell._entrytype)
         self._type = copy.deepcopy(spell._type)
-        self._parent = f'{spell.name}_Original'
         self._children = []
         self._data = copy.deepcopy(spell._data)
         
         self.add_spelldata('ContainerSpells', '')
-        self.replace_spelldata('SpellFlags', '(.*)', '\1;IsLinkedSpellContainer')
+        if not self.is_container():
+            self.replace_spelldata('SpellFlags', r'(.*)', r'\1;IsLinkedSpellContainer')
     
     def __repr__(self):
         return f'Container({self._name})'
@@ -366,6 +365,20 @@ class Container(Spell):
         children = ";".join([s.name for s in self._children])
         self.add_spelldata('ContainerSpells', children)
 
+    @property
+    def children(self):
+        return self._children
+
+    @children.setter
+    def children(self, value):
+        self._children = value
+
+    @children.deleter
+    def children(self):
+        del self._children
+
+    def add_child(self, spell):
+        self._children.append(spell)
 
 
 if __name__ == "__main__":
