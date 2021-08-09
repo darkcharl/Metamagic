@@ -222,28 +222,28 @@ class Spell(object):
     def uses_spellslot(self):
         return self.find_spelldata('UseCosts', 'SpellSlot')
 
-    def get_spellname(self, line):
+    def parse_spellname(self, line):
         re_name = r'(?P<headertype>new entry) "(?P<value>.+)"'
         m = re.match(re_name, line)
         if not m:
             return ""
         return m.group('value')
 
-    def get_entrytype(self, line):
+    def parse_entrytype(self, line):
         re_type = r'(?P<headertype>type) "(?P<value>.+)"'
         m = re.match(re_type, line)
         if not m:
             return ""
         return m.group('value')
 
-    def get_spellparent(self, line):
+    def parse_spellparent(self, line):
         re_parent = r'(?P<headertype>using) "(?P<value>.+)"'
         m = re.match(re_parent, line)
         if not m:
             return ""
         return m.group('value')
 
-    def get_spelldata(self, line):
+    def parse_spelldata(self, line):
         re_data = r'(?P<datatype>data) "(?P<key>.+)" "(?P<value>.*)"'
         m = re.match(re_data, line)
         if not m:
@@ -256,26 +256,26 @@ class Spell(object):
         """ Processes a block of lines into a Spell """
 
         """ Spell name is stored in 'new entry' """
-        self._name = self.get_spellname(lines.pop(0))
+        self._name = self.parse_spellname(lines.pop(0))
         
         """ The entry type for spells is stored via 'type' and is always be set to 'SpellData' """
-        self._entrytype = self.get_entrytype(lines.pop(0))
+        self._entrytype = self.parse_entrytype(lines.pop(0))
         
         """ The actual spell type (e.g. 'Projectile') is stored simply as 'data' """
-        self._type = self.get_spelldata(lines.pop(0))
+        self._type = self.parse_spelldata(lines.pop(0))
         
         """ 
             Settings might be inherited from another spell pointed to via the 'using' key
             This is an optional setting though so we only pop() this line if exists.
         """
         peekline = lines[0]
-        self._parent = self.get_spellparent(peekline)
+        self._parent = self.parse_spellparent(peekline)
         if self._parent:
             lines.pop(0)
 
         """ The rest of the lines should all be in 'data' """
         for line in lines:
-            d = self.get_spelldata(line)
+            d = self.parse_spelldata(line)
             if d:
                 self._data.update(d)
 
