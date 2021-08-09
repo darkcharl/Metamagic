@@ -184,21 +184,17 @@ class Spell(object):
         self._data.update(spelldata)
 
     def quickened(self, container):
-        spell_quickened = self.clone()
+        spell_quickened = self.clone().containerized(container)
         spell_quickened.name = f'{self._name}_Quickened'
         displayname = 'Cast Quickened'
-        spell_quickened.add_spelldata('SpellContainerID', f'{container.name}')
-        spell_quickened.add_spelldata('RootSpellID', f'{container.name}')
         spell_quickened.add_spelldata('DisplayName', displayname)
         spell_quickened.replace_spelldata('UseCosts', 'ActionPoint(Group)?', 'BonusAction')
         return spell_quickened
 
     def subtle(self, container):
-        spell_subtle = self.clone()
+        spell_subtle = self.clone().containerized(container)
         spell_subtle.name = f'{self.name}_Subtle'
         displayname = 'Cast Subtle'
-        spell_subtle.add_spelldata('SpellContainerID', f'{container.name}')
-        spell_subtle.add_spelldata('RootSpellID', f'{container.name}')
         spell_subtle.add_spelldata('DisplayName', displayname)
         spell_subtle.replace_spelldata('SpellFlags', 'HasVerbalComponent[;]*', '')
         return spell_subtle
