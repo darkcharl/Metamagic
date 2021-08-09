@@ -315,13 +315,17 @@ class Container(Spell):
         self._entrytype = copy.deepcopy(spell._entrytype)
         self._type = copy.deepcopy(spell._type)
         self._parent = f'{spell.name}_Original'
+        self._children = []
+        spellflags_items = spell._data.get("SpellFlags", "").split(';')
+        spellflags_items.append('IsLinkedSpellContainer')
+        spellflags = ';'.join(spellflags_items)
         self._data = {
             'SpellType' : f'{spell._data.get("SpellType")}',
             'DisplayName' : f'{spell._name} (Metamagic)',
             'ContainerSpells' : '',
-            'SpellFlags' : f'{spell._data.get("SpellFlags", "")}'
+            'SpellFlags' : f'{spellflags}'
         }
-        self._children = []
+        
     
     def __repr__(self):
         return f'Container({self._name})'
