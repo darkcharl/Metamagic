@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import argparse
 import re
@@ -37,23 +37,30 @@ class Library(object):
 
             """ Create containerized version of Spell, add to Library and Container """
             spell_containerized = spell.containerized(container)
-
+            
             """ Create quickened version of Spell, add to Library and Container """
             spell_quickened = spell.quickened()
-
+            
             """ Create subtle version of Spell, add to Library and Container """
             spell_subtle = spell.subtle()
 
-            """ Add Spells to Container """
-            container.add(spell)
-            container.add(spell_subtle)
-            container.add(spell_quickened)
+            """ Add to meta Spells to Container and Library, if applicable """
+            meta_spells = []
 
-            """ Add Container to Library """
-            metamagic_library.add(spell_containerized)
-            metamagic_library.add(spell_quickened)
-            metamagic_library.add(spell_subtle)
-            metamagic_library.add(container)
+            """ Only add quickened variant for Spells that consume SpellSlots and don't already use BonusAction """
+            if spell.uses_spellslot() and not spell.uses_bonusaction():
+                meta_spells.append(spell_quickened)
+
+            """ Only add subtle variant for Spells that consume SpellSlots and require verbal component """
+            if spell.uses_spellslot() and spell.has_verbalcomponent():
+                meta_spells.append(spell_subtle)
+
+            """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
+            if len(meta_spells):
+                for s in meta_spells:            
+                    container.add(s)
+                    metamagic_library.add(s)
+                metamagic_library.add(container)
         
         return metamagic_library
 
@@ -176,7 +183,7 @@ class Spell(object):
         spell_quickened = self.clone()
         spell_quickened.name = f'{self.name}_Quickened'
         usecost = self._data.get('UseCosts', "")
-        usecost_filtered = re.sub(r'ActionPoint(Group)', 'BonusAction', usecost)
+        usecost_filtered = re.sub(r'ActionPoint(Group)?', 'BonusAction', usecost)
         spelldata = {
             'UseCosts' : usecost_filtered
         }
@@ -202,6 +209,20 @@ class Spell(object):
         spelldata = {'SpellContainerID' : f'{container.name}'}
         spell_containerized.alter(spelldata)
         return spell_containerized
+    
+    def find_spelldata(self, key, value):
+        if self._data.get(key, None) and self._data[key].find(value) > -1:
+            return True
+        return False
+
+    def has_verbalcomponent(self):
+        return self.find_spelldata('SpellFlags', 'HasVerbalComponent')
+
+    def uses_bonusaction(self):
+        return self.find_spelldata('UseCosts', 'BonusAction')
+        
+    def uses_spellslot(self):
+        return self.find_spelldata('UseCosts', 'SpellSlot')
 
     def get_spellname(self, line):
         re_name = r'(?P<headertype>new entry) "(?P<value>.+)"'
