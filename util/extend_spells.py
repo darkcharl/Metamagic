@@ -363,8 +363,4 @@ if __name__ == "__main__":
 
     metamagic_library.save(destination)
 
-    #extended_spell_list = add_meta_versions(original_spell_list)
-    
-    #with open(destination, 'w') as dst:
-    #    dst.write(recreate_library(extended_spell_list))
 
