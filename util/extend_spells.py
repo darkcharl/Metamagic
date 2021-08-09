@@ -55,6 +55,9 @@ class Library(object):
                 spell_quickened = spell.quickened(container)
                 spell_subtle = spell.subtle(container)
 
+                """ Add containerized spell to meta spells """
+                meta_spells.append(spell_containerized)
+
                 """ Only add quickened variant for Spells that consume SpellSlots and don't already use BonusAction """
                 if spell.uses_spellslot() and not spell.uses_bonusaction():
                     meta_spells.append(spell_quickened)
@@ -64,13 +67,11 @@ class Library(object):
                     meta_spells.append(spell_subtle)
 
             """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
-            if len(meta_spells):
-                container.add(spell_containerized)
+            if meta_spells:
                 for s in meta_spells:         
                     container.add(s)
 
                 metamagic_library.add(container)
-                metamagic_library.add(spell_containerized)
                 for s in meta_spells:
                     metamagic_library.add(s)
 
@@ -133,13 +134,11 @@ class Library(object):
 
 class Spell(object):
     """ Spell Object """    
-    def __init__(self, spell=None):
+    def __init__(self):
         self._name = ""
         self._entrytype = 'SpellData'
         self._parent = ""
         self._data = {}
-        if spell:
-            self = spell.clone()
 
     @property
     def name(self):
@@ -212,7 +211,8 @@ class Spell(object):
         spell_containerized.add_spelldata('DisplayName', 'Cast Unmodified')
         spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
         spell_containerized.add_spelldata('RootSpellID', f'{container.name}')
-        spell_containerized.replace_spelldata('SpellFlags', r'(.*)(;IsLinkedSpellContainer)', r'\1')
+        if self.is_container:
+            spell_containerized.replace_spelldata('SpellFlags', r';IsLinkedSpellContainer', r'')
         return spell_containerized
     
     def add_spelldata(self, key, value):
@@ -355,7 +355,7 @@ class Container(Spell):
         
         self.add_spelldata('ContainerSpells', '')
         if not self.is_container():
-            self.replace_spelldata('SpellFlags', r'(.*)', r'\1;IsLinkedSpellContainer')
+            self.replace_spelldata('SpellFlags', r'^(.*)$', r'\1;IsLinkedSpellContainer')
     
     def __repr__(self):
         return f'Container({self._name})'
