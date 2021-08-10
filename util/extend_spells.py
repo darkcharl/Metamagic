@@ -58,19 +58,24 @@ class Library(object):
                 """ Add containerized spell to meta spells """
                 meta_spells.append(spell_containerized)
 
+                """ Spells with PowerLevel have their data in their parent """
+                if spell.has_powerlevel():
+                    test_spell = self._indexed_spells[spell.get_rootspellname()]
+                else:
+                    test_spell = spell
+
                 """ Only add quickened variant for Spells that consume SpellSlots and don't already use BonusAction """
-                if spell.uses_spellslot() and not spell.uses_bonusaction():
-                    meta_spells.append(spell_quickened)
+                if test_spell.uses_spellslot() and not test_spell.uses_bonusaction():
+                        meta_spells.append(spell_quickened)
 
                 """ Only add subtle variant for Spells that consume SpellSlots and require verbal component """
-                if spell.uses_spellslot() and spell.has_verbalcomponent():
+                if test_spell.uses_spellslot() and test_spell.has_verbalcomponent():
                     meta_spells.append(spell_subtle)
 
             """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
             if meta_spells:
                 for s in meta_spells:
-                    if not s.has_rootspell():
-                        container.add(s)
+                    container.add(s)
 
                 metamagic_library.add(container)
                 for s in meta_spells:
@@ -210,13 +215,11 @@ class Spell(object):
         spell_containerized = self.clone()
         spell_containerized.name = f'{self.name}_Original'
         spell_containerized.add_spelldata('DisplayName', 'Cast Unmodified')
-        if spell_containerized.has_leveled_parent():
+        if spell_containerized.has_parent() and spell_containerized.has_powerlevel():
             baselevel_spellname = '_'.join(self.name.split('_')[:-1])
             spell_containerized.add_spelldata('RootSpellID', f'{baselevel_spellname}_Original')
             spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
-        elif spell_containerized.has_powerlevel():
-            spell_containerized.add_spelldata('RootSpellID', f'{container.name}')
-        else:
+        elif spell_containerized.has_rootspell:
             spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
         if self.is_container:
             spell_containerized.replace_spelldata('SpellFlags', r';IsLinkedSpellContainer', r'')
@@ -237,6 +240,10 @@ class Spell(object):
         if self.find_spelldata(key, find_re):
             self._data[key] = re.sub(find_re, replace_re, self._data[key])
 
+    def get_rootspellname(self):
+        if self.has_powerlevel:
+            return self.get_spelldata('RootSpellID')
+
     def get_spellgroup(self):
         if self.has_spellcontainer():
             return self.get_spelldata('SpellContainerID')
@@ -253,7 +260,7 @@ class Spell(object):
     def has_spellcontainer(self):
         return self.get_spelldata('SpellContainerID')
 
-    def has_leveled_parent(self):
+    def has_root_container(self):
         return self.has_spellcontainer() and self.has_rootspell()
 
     def has_parent(self):
