@@ -68,8 +68,9 @@ class Library(object):
 
             """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
             if meta_spells:
-                for s in meta_spells:         
-                    container.add(s)
+                for s in meta_spells:
+                    if not s.has_rootspell():
+                        container.add(s)
 
                 metamagic_library.add(container)
                 for s in meta_spells:
