@@ -47,7 +47,7 @@ class Library(object):
 
         for spellgroup, spells in self._grouped_spells.items():
             logging.debug(f"Creating meta spells for {spellgroup} with spells {spells}")
-            container = Container(spells[0])
+            container = Container(spellgroup, spells[0])
             container.name = f'{spellgroup}_Metamagic'
             meta_spells = []
             for spell in spells:
@@ -209,8 +209,14 @@ class Spell(object):
         spell_containerized = self.clone()
         spell_containerized.name = f'{self.name}_Original'
         spell_containerized.add_spelldata('DisplayName', 'Cast Unmodified')
-        spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
-        spell_containerized.add_spelldata('RootSpellID', f'{container.name}')
+        if spell_containerized.has_leveled_parent():
+            baselevel_spellname = '_'.join(self.name.split('_')[:-1])
+            spell_containerized.add_spelldata('RootSpellID', f'{baselevel_spellname}_Original')
+            spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
+        elif spell_containerized.has_powerlevel():
+            spell_containerized.add_spelldata('RootSpellID', f'{container.name}')
+        else:
+            spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
         if self.is_container:
             spell_containerized.replace_spelldata('SpellFlags', r';IsLinkedSpellContainer', r'')
         return spell_containerized
@@ -231,7 +237,7 @@ class Spell(object):
             self._data[key] = re.sub(find_re, replace_re, self._data[key])
 
     def get_spellgroup(self):
-        if self.has_containerspell():
+        if self.has_spellcontainer():
             return self.get_spelldata('SpellContainerID')
         elif self.has_rootspell():
             return self.get_spelldata('RootSpellID')
@@ -243,8 +249,14 @@ class Spell(object):
     def has_powerlevel(self):
         return self.find_spelldata('PowerLevel', '[0-9]+')
 
-    def has_containerspell(self):
+    def has_spellcontainer(self):
         return self.get_spelldata('SpellContainerID')
+
+    def has_leveled_parent(self):
+        return self.has_spellcontainer() and self.has_rootspell()
+
+    def has_parent(self):
+        return self.has_spellcontainer() or self.has_rootspell()
 
     def has_rootspell(self):
         return self.get_spelldata('RootSpellID')
@@ -345,12 +357,13 @@ class Spell(object):
 
 class Container(Spell):
     """ Containers are special spells that contain other spells through "ContainerSpells" """    
-    def __init__(self, spell):
+    def __init__(self, spellgroup, spell):
         super().__init__()
         self._name = copy.deepcopy(spell._name)
         self._entrytype = copy.deepcopy(spell._entrytype)
         self._type = copy.deepcopy(spell._type)
         self._children = []
+        self._spellgroup = spellgroup
         self._data = copy.deepcopy(spell._data)
         
         self.add_spelldata('ContainerSpells', '')
@@ -380,6 +393,18 @@ class Container(Spell):
     def add_child(self, spell):
         self._children.append(spell)
 
+    @property
+    def spellgroup(self):
+        return self._spellgroup
+
+    @spellgroup.setter
+    def spellgroup(self, value):
+        self._spellgroup = value
+
+    @spellgroup.deleter
+    def spellgroup(self):
+        del self._spellgroup
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description)
