@@ -65,11 +65,11 @@ class Library(object):
                     test_spell = spell
 
                 """ Only add quickened variant for Spells that consume SpellSlots and don't already use BonusAction """
-                if test_spell.uses_spellslot() and not test_spell.uses_bonusaction():
+                if not test_spell.is_container() and test_spell.uses_spellslot() and not test_spell.uses_bonusaction():
                         meta_spells.append(spell_quickened)
 
                 """ Only add subtle variant for Spells that consume SpellSlots and require verbal component """
-                if test_spell.uses_spellslot() and test_spell.has_verbalcomponent():
+                if not test_spell.is_container() and test_spell.uses_spellslot() and test_spell.has_verbalcomponent():
                     meta_spells.append(spell_subtle)
 
             """ Add spells and container to Library only if Container holds more than just the containerized original Spell """
@@ -219,9 +219,10 @@ class Spell(object):
             baselevel_spellname = '_'.join(self.name.split('_')[:-1])
             spell_containerized.add_spelldata('RootSpellID', f'{baselevel_spellname}_Original')
             spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
-        elif spell_containerized.has_rootspell:
+        elif spell_containerized.has_rootspell():
             spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
-        if self.is_container:
+        if self.is_container():
+            spell_containerized.remove_spelldata('ContainerSpells')
             spell_containerized.replace_spelldata('SpellFlags', r';IsLinkedSpellContainer', r'')
         return spell_containerized
     
@@ -235,6 +236,10 @@ class Spell(object):
     
     def get_spelldata(self, key):
         return self._data.get(key, None)
+
+    def remove_spelldata(self, key):
+        if self.get_spelldata(key):
+            del self._data[key]
 
     def replace_spelldata(self, key, find_re, replace_re):
         if self.find_spelldata(key, find_re):
@@ -252,7 +257,7 @@ class Spell(object):
         return self._name
 
     def is_container(self):
-        return self.find_spelldata('SpellFlags', 'IsLinkedSpellContainer')
+        return self.find_spelldata('ContainerSpells', '.+')
 
     def has_powerlevel(self):
         return self.find_spelldata('PowerLevel', '[0-9]+')
