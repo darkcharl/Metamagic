@@ -58,7 +58,7 @@ class Library(object):
                 """ Add containerized spell to meta spells """
                 meta_spells.append(spell_containerized)
 
-                """ Spells with PowerLevel have their data in their parent """
+                """ Spells with PowerLevel have their data in their using """
                 if spell.has_powerlevel():
                     test_spell = self._indexed_spells[spell.get_rootspellname()]
                 else:
@@ -114,8 +114,8 @@ class Library(object):
         """ Human readable representation of the Library and Spells """
         for spellname, spell in self._indexed_spells.items():
             print(f'{spell.name}')
-            if spell.parent:
-                print(f'  Parent: {spell.parent}')
+            if spell._using:
+                print(f'  Using: {spell._using}')
             for k, v in spell.data.items():
                 print(f'  {k}: {v}')
             print()
@@ -143,7 +143,7 @@ class Spell(object):
     def __init__(self):
         self._name = ""
         self._entrytype = 'SpellData'
-        self._parent = ""
+        self._using = ""
         self._data = {}
 
     @property
@@ -159,16 +159,16 @@ class Spell(object):
         del self._name
 
     @property
-    def parent(self):
-        return self._parent
+    def using(self):
+        return self._using
 
-    @parent.setter
-    def parent(self, value):
-        self._parent = value
+    @using.setter
+    def using(self, value):
+        self._using = value
 
-    @parent.deleter
-    def parent(self):
-        del self._parent
+    @using.deleter
+    def using(self):
+        del self._using
 
     @property
     def data(self):
@@ -190,7 +190,7 @@ class Spell(object):
         new._name = copy.deepcopy(self._name)
         new._entrytype = copy.deepcopy(self._entrytype)
         new._type = copy.deepcopy(self._type)
-        new._parent = copy.deepcopy(self._parent)
+        new._using = copy.deepcopy(self._using)
         new._data = copy.deepcopy(self._data)
         return new
     
@@ -201,6 +201,8 @@ class Spell(object):
         spell_quickened = self.clone().containerized(container)
         spell_quickened.name = f'{self._name}_Quickened'
         spell_quickened.add_spelldata('DisplayName', 'Cast Quickened')
+        if not spell_quickened.find_spelldata('UseCosts', '.+'):
+            spell_quickened.add_spelldata('UseCosts', self.get_spelldata('UseCost'))
         spell_quickened.replace_spelldata('UseCosts', 'ActionPoint(Group)?', 'BonusAction')
         return spell_quickened
 
@@ -209,18 +211,16 @@ class Spell(object):
         spell_subtle.name = f'{self.name}_Subtle'
         spell_subtle.add_spelldata('DisplayName', 'Cast Subtle')
         spell_subtle.replace_spelldata('SpellFlags', 'HasVerbalComponent[;]*', '')
+        if not spell_subtle.find_spelldata('UseCosts', '.+'):
+            spell_subtle.add_spelldata('UseCosts', self.get_spelldata('UseCost'))
         return spell_subtle
 
     def containerized(self, container):
         spell_containerized = self.clone()
         spell_containerized.name = f'{self.name}_Original'
         spell_containerized.add_spelldata('DisplayName', 'Cast Unmodified')
-        if spell_containerized.has_parent() and spell_containerized.has_powerlevel():
-            baselevel_spellname = '_'.join(self.name.split('_')[:-1])
-            spell_containerized.add_spelldata('RootSpellID', f'{baselevel_spellname}_Original')
-            spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
-        elif spell_containerized.has_rootspell():
-            spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
+        spell_containerized.add_spelldata('SpellContainerID', f'{container.name}')
+        spell_containerized.remove_spelldata('RootSpellID')
         if self.is_container():
             spell_containerized.remove_spelldata('ContainerSpells')
             spell_containerized.replace_spelldata('SpellFlags', r';IsLinkedSpellContainer', r'')
@@ -250,10 +250,8 @@ class Spell(object):
             return self.get_spelldata('RootSpellID')
 
     def get_spellgroup(self):
-        if self.has_spellcontainer():
-            return self.get_spelldata('SpellContainerID')
-        elif self.has_rootspell():
-            return self.get_spelldata('RootSpellID')
+        if self.has_using():
+            return self._using
         return self._name
 
     def is_container(self):
@@ -268,8 +266,8 @@ class Spell(object):
     def has_root_container(self):
         return self.has_spellcontainer() and self.has_rootspell()
 
-    def has_parent(self):
-        return self.has_spellcontainer() or self.has_rootspell()
+    def has_using(self):
+        return self._using
 
     def has_rootspell(self):
         return self.get_spelldata('RootSpellID')
@@ -297,9 +295,9 @@ class Spell(object):
             return ""
         return m.group('value')
 
-    def parse_spellparent(self, line):
-        re_parent = r'(?P<headertype>using) "(?P<value>.+)"'
-        m = re.match(re_parent, line)
+    def parse_spellusing(self, line):
+        re_using = r'(?P<headertype>using) "(?P<value>.+)"'
+        m = re.match(re_using, line)
         if not m:
             return ""
         return m.group('value')
@@ -330,8 +328,8 @@ class Spell(object):
             This is an optional setting though so we only pop() this line if exists.
         """
         peekline = lines[0]
-        self._parent = self.parse_spellparent(peekline)
-        if self._parent:
+        self._using = self.parse_spellusing(peekline)
+        if self._using:
             lines.pop(0)
 
         """ The rest of the lines should all be in 'data' """
@@ -351,11 +349,11 @@ class Spell(object):
             f'''new entry "{self._name}"''',
             f'''type "{self._entrytype}"''',
             f'''data "SpellType" "{self._data['SpellType']}"''',
-            f'''using "{self._parent}"'''
+            f'''using "{self._using}"'''
         ]
     
-        """ Remove parent line if not applicable """
-        if not self._parent:
+        """ Remove using line if not applicable """
+        if not self._using:
             lines.pop()
 
         """ Already specified in above header """
